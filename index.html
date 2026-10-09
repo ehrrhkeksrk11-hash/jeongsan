@@ -247,16 +247,22 @@ textarea{min-height:76px;resize:vertical}
     try{navigator.clipboard.writeText(text).then(ok,fb)}catch(_){fb()}
   }
   function load(msg){
+    if(saving||inflight||pendingE){if(msg)toast('저장 중이라 잠시 후 다시 눌러 주세요');return Promise.resolve()}
     return run('listEvents').then(function(list){events=list;loaded=true;saveLocal();render();if(msg)toast(msg)},function(err){loaded=true;render();toast('불러오지 못했어요: '+errMsg(err),true)});
   }
+  var seq=0,inflight=false,pendingE=null;
   function save(e){
-    clearTimeout(timer);toast('저장 중…');
-    timer=setTimeout(function(){
-      saving=true;
-      var data={title:e.title,host:e.host,date:e.date,due:e.due,account:e.account,memo:e.memo,total:e.total,people:e.people};
-      run('updateEvent',e.id,pins[e.id],data).then(function(list){saving=false;events=list;render();toast('저장했어요')},
-        function(err){saving=false;toast('저장 실패: '+errMsg(err),true);load()});
-    },600);
+    seq++;pendingE=e;saving=true;clearTimeout(timer);toast('저장 중…');
+    timer=setTimeout(flush,400);
+  }
+  function flush(){
+    if(inflight||!pendingE)return;
+    var e=pendingE,mySeq=seq;pendingE=null;inflight=true;
+    var data={title:e.title,host:e.host,date:e.date,due:e.due,account:e.account,memo:e.memo,total:e.total,people:e.people};
+    run('updateEvent',e.id,pins[e.id],data).then(function(list){
+      inflight=false;
+      if(mySeq===seq&&!pendingE){saving=false;events=list;render();toast('저장했어요')}else flush();
+    },function(err){inflight=false;saving=false;pendingE=null;toast('저장 실패: '+errMsg(err),true);load()});
   }
   app.addEventListener('input',function(ev){
     var id=ev.target.id;
