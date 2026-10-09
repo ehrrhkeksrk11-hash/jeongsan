@@ -206,12 +206,15 @@ textarea{min-height:76px;resize:vertical}
   }
   var JUNK=/(모임장|운영진|참여자|참석자|참여|멤버|매너|온도|°|℃|프로필|대화|채팅|나가기|신고|초대|관리|전체|더보기|확인|취소|모집|정원|대기|승인|강퇴|위치|오전|오후|분 전|시간 전|일 전|어제|당근|알림|LTE|5G|명$|^\d|%)/;
   function parseNames(text){
-    var seen={},good=[],bad=[];
-    String(text||'').split(/\r?\n/).forEach(function(l){
+    var seen={},good=[],bad=[],black={},lines=String(text||'').split(/\r?\n/).map(function(s){return s.trim()});
+    lines.forEach(function(l,i){if(/참여\s*중|대기\s*중/.test(l)){for(var j=i-1;j>=0&&j>=i-3;j--){if(/[가-힣A-Za-z]/.test(lines[j])){black[lines[j]]=1;break}}}});
+    lines.forEach(function(l){
+      if(black[l])return;
       l=l.split(/[•·|]/)[0].replace(/\s+/g,' ').trim().replace(/님$/,'').trim();
+      if(!/[가-힣A-Za-z]/.test(l))return;
+      var tk=l.split(' ');if(tk.length>1&&tk[0]==='나')tk.shift();if(tk.length>1&&/(동|읍|면|리|가)$/.test(tk[tk.length-1]))tk.pop();l=tk.join(' ');
       if(!l||seen[l])return;seen[l]=1;
-      if(/^[\d\s:.,%\/()-]+$/.test(l))return;
-      (l.length>20||JUNK.test(l)?bad:good).push(l);
+      (l.length>20||/[()]/.test(l)||JUNK.test(l)?bad:good).push(l);
     });
     return {good:good,bad:bad};
   }
